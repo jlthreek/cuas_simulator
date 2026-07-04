@@ -37,6 +37,7 @@ cuas_simulator/
 └── cuas/
     ├── engine.py       # 판단로직·임계값 (근거 기반)
     ├── simulator.py    # 랜덤 침투체 궤적 생성 + 센서 관측 모델
+    ├── pathfinding.py  # 드론 경로탐색(그리드 A*) — 건물 등 장애물 회피
     ├── pipeline.py     # 스텝별 처리 (융합→분류→위협→대응)
     ├── dashboard.py    # 경보 시각화
     ├── rf_adapter.py   # 실측 RF CSV 어댑터
@@ -114,6 +115,17 @@ python train_threat_ml.py --scenarios 80 --seed 7
 | 속도 | 8–16 m/s |
 | RCS | −26~−20 dBsm |
 | 근거 | 비둘기 실측 AGL 60–88m, 대다수 도심 조류 150m 이하 비행 |
+
+## 드론 경로탐색 (`cuas/pathfinding.py`)
+
+드론은 스폰 시점에 목표 자산까지 직선이 아닌 **그리드 A\* 경로탐색**으로 웨이포인트를 계산하고,
+매 스텝 `pathfinding.advance_along_path()`로 그 웨이포인트를 따라 이동한다(목표 도달 시 정지/체공).
+
+- `simulator.generate_scenario(..., obstacles=None)` / `spawn(..., obstacles=None)`로 건물 등
+  장애물 폴리곤(`[[(x1,y1),(x2,y2),...], ...]`, km 좌표)을 주입할 수 있다.
+- **`obstacles=None`(기본값)이면 기존과 동일하게 목표 자산으로 직선 비행** — 실제 지도(건물)
+  데이터는 다른 프로젝트 병합 후 이 인자로 연결할 예정이라 지금은 폴백 상태로 동작한다.
+- 풍선·조류는 목표 지향 비행이 아니라(바람/임의 표류) 경로탐색을 적용하지 않는다.
 
 ## Claude Code로 확장하기
 
