@@ -33,13 +33,38 @@ cuas_simulator/
 ├── run.py              # CLI 진입점
 ├── requirements.txt
 ├── data/AADM1.csv      # 실측 RF 샘플 (Keysight RATEL TDOA)
+├── train_threat_ml.py  # RADAR/RF 기반 threat_level 사전분류기 학습 CLI
 └── cuas/
     ├── engine.py       # 판단로직·임계값 (근거 기반)
     ├── simulator.py    # 랜덤 침투체 궤적 생성 + 센서 관측 모델
     ├── pipeline.py     # 스텝별 처리 (융합→분류→위협→대응)
     ├── dashboard.py    # 경보 시각화
-    └── rf_adapter.py   # 실측 RF CSV 어댑터
+    ├── rf_adapter.py   # 실측 RF CSV 어댑터
+    └── threat_ml/      # RADAR/RF 관측 기반 threat_level(LOW/MED/HIGH) 사전분류기 (독립 모듈)
 ```
+
+## RADAR/RF 기반 threat_level 사전분류기 (`cuas/threat_ml/`)
+
+Desktop의 `sensor_threat_classifier`(규칙 기반 사전필터 + 정규화 ML 재분류) 프로젝트를 이식한
+독립 모듈. IR/광학 센서는 이 프로젝트에 없으므로 사용하지 않고, `cuas.simulator`/`cuas.pipeline`이
+이미 생성하는 RADAR·RF 관측값(RCS, 고도, 속도, 접근속도, 자산거리, 풍향정합, 마이크로도플러,
+RF 방사/종류)만으로 학습한다. `engine.py`/`pipeline.py`/`simulator.py`는 감싸서 재사용할 뿐
+수정하지 않으며, 라벨(threat_level)은 `engine.recommend()`의 대응옵션(none/soft/hard)을
+그대로 LOW/MEDIUM/HIGH로 매핑해 만든다.
+
+- **1단계 규칙**: 로터 마이크로도플러·RF 방사가 모두 없으면 즉시 LOW (원본의 "IR 무열원→LOW"를
+  cuas가 보유한 신호로 재구성).
+- **2단계 ML**: 남은(추진/RF 신호가 있는) 표적을 LogisticRegression(L2) vs 얕은 RandomForest 중
+  교차검증 성능이 좋은 쪽으로 MEDIUM/HIGH 재분류. 같은 트랙의 시점들이 train/val/test에 섞이지
+  않도록 트랙 단위(group)로 분할해 시간적 data leakage를 방지.
+
+```bash
+python train_threat_ml.py                    # 기본 40개 시나리오로 학습
+python train_threat_ml.py --scenarios 80 --seed 7
+```
+
+출력: `outputs/threat_ml/confusion_matrix_test.png`, `learning_curve.png`,
+`final_classification_result.csv`, `model_bundle.joblib`(추론 재사용, `cuas.threat_ml.predict` 참조).
 
 ## 판단로직 근거 (요약)
 
