@@ -38,6 +38,7 @@ cuas_simulator/
     ├── engine.py       # 판단로직·임계값 (근거 기반)
     ├── simulator.py    # 랜덤 침투체 궤적 생성 + 센서 관측 모델
     ├── pathfinding.py  # 드론 경로탐색(그리드 A*) — 건물 등 장애물 회피
+    ├── eo_model.py     # EO 카메라 합성 관측 모델(Johnson 기준 TTPF)
     ├── pipeline.py     # 스텝별 처리 (융합→분류→위협→대응)
     ├── dashboard.py    # 경보 시각화
     ├── rf_adapter.py   # 실측 RF CSV 어댑터
@@ -130,6 +131,19 @@ python train_threat_ml.py --scenarios 80 --seed 7
 - **`obstacles=None`(기본값)이면 기존과 동일하게 목표 자산으로 직선 비행** — 실제 지도(건물)
   데이터는 다른 프로젝트 병합 후 이 인자로 연결할 예정이라 지금은 폴백 상태로 동작한다.
 - 풍선·조류는 목표 지향 비행이 아니라(바람/임의 표류) 경로탐색을 적용하지 않는다.
+
+## EO 카메라 합성 관측 (`cuas/eo_model.py`)
+
+실제 영상 없이 Johnson 기준(EO/IR 표적획득 성능모델, NVESD/ACQUIRE 계열 방법론)의
+TTPF(Target Transfer Probability Function)로 거리·조도에 따른 EO 탐지확률·분류신뢰도를 합성한다.
+
+- `simulator.py`가 서브타입별 물리크기(`EO_SIZE_M`)와 EO 카메라(중앙자산 (0,0) 고정 가정) 거리로
+  매 스텝 `eo_present`/`eo_bbox_px`/`eo_conf`를 생성한다. `illum`(조도 0~1)로 주간/야간 차이 반영
+  — 가시광 기반이라 RADAR/RF와 달리 야간엔 탐지성능이 급격히 저하되는 EO 고유 한계를 모델링.
+- `pipeline.eo_corroborate()`가 이 EO 신뢰도를 보조증거로 결합: `engine.classify()`가 이미
+  "드론"으로 판정한 트랙에 한해, EO가 같은 트랙에서 실제로 뭔가 포착했다면 `p_uav`를 소폭
+  상향 보정(가중치 0.15, 레이더/RF가 여전히 주 증거). EO 미탐지는 벌점 없음(부재증거는 약하게
+  취급). `engine.py`의 분류 임계값 자체는 변경하지 않는다.
 
 ## Claude Code로 확장하기
 

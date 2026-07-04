@@ -2,7 +2,7 @@
 Gray-zone C-UAS 시뮬레이터 — 랜덤 침투체(드론/풍선/새) 궤적 생성 + 센서 관측 모델
 """
 import numpy as np
-from . import pathfinding
+from . import pathfinding, eo_model
 
 DT = 2.0            # 스텝 간격 (초)
 N_STEPS = 40
@@ -11,8 +11,19 @@ N_STEPS = 40
 RADAR_POS_NOISE = 0.04   # km (레이더 위치 정밀)
 RF_CEP = 0.42            # km (RF TDOA CEP — 친구 실측 AADM1.csv 중앙값 420m)
 
+# EO 카메라용 표적 특징장(대각/익폭/직경, m) — eo_model.observe()의 픽셀상당크기 산출에 사용
+EO_SIZE_M = {
+    "쿼드콥터": 0.5,               # DJI Inspire1급 대각크기(~0.56m)
+    "고정익": 1.5,                  # 소형 고정익 익폭(1~2m)
+    "자폭형(FPV)": 0.25,            # 5인치급 FPV 프레임 대각크기
+    "회전익(헬기형)": 3.0,          # Camcopter S-100급 로터직경(~3.4m)
+    "오물풍선": 1.5,                # 오물풍선 팽창직경(1~2m 보고)
+    "고고도 미사일 풍선": 40.0,     # 2023 고고도 정찰풍선 사례 포낭 직경(수십m대) 참고
+    "조류": 0.5,                    # 중형 도심조류 평균 날개폭
+}
 
-def spawn(kind, tid, rng, assets, obstacles=None):
+
+def spawn(kind, tid, rng, assets, obstacles=None, illum=1.0):
     """유형별 물리 프로파일로 궤적 생성. 좌표 km, 속도 m/s.
 
     드론/풍선은 내부적으로 서로 다른 실제 제원 근거를 갖는 서브타입으로 세분화한다
@@ -21,6 +32,7 @@ def spawn(kind, tid, rng, assets, obstacles=None):
 
     obstacles: 건물 등 실제 지도 장애물 폴리곤 리스트 (드론에만 적용, pathfinding.plan_path 참조).
     None이면 드론도 기존과 동일하게 목표 자산으로 직선 비행한다.
+    illum: 조도 계수 0(야간)~1(주간) — EO 카메라 관측 모델(eo_model.observe)에 전달.
     """
     ang = rng.uniform(0, 2 * np.pi)
     r0 = rng.uniform(3.8, 4.8)
@@ -75,6 +87,7 @@ def spawn(kind, tid, rng, assets, obstacles=None):
         alt = rng.uniform(30, 120); rcs = rng.uniform(-26, -20); mdop = False
         rf_class = "none"; rf_p = False
 
+    eo_size = EO_SIZE_M[subtype]
     wind_dir = v / (np.linalg.norm(v) + 1e-9)
     traj = []
     p = start.copy()
@@ -85,6 +98,7 @@ def spawn(kind, tid, rng, assets, obstacles=None):
         else:
             p = p + v * DT / 1000.0    # m/s * s -> km
         rf_pos = p + rng.normal(0, RF_CEP, 2) if rf_p else (np.nan, np.nan)
+        eo_obs = eo_model.observe(p, eo_size, rng, illum=illum)
         traj.append(dict(
             t=i * DT, x=float(p[0]), y=float(p[1]), alt=float(alt + rng.normal(0, 6)),
             radar_x=float(p[0] + rng.normal(0, RADAR_POS_NOISE)),
@@ -92,19 +106,21 @@ def spawn(kind, tid, rng, assets, obstacles=None):
             rf_x=float(rf_pos[0]), rf_y=float(rf_pos[1]),
             rcs=float(rcs + rng.normal(0, 1.5)), mdop=bool(mdop),
             rf_class=rf_class, rf_present=bool(rf_p), snr=float(rng.uniform(6, 20)),
+            **eo_obs,
         ))
     return dict(tid=tid, truth=kind, subtype=subtype, wind_dir=wind_dir.tolist(), traj=traj)
 
 
-def generate_scenario(n_drone=3, n_balloon=3, n_bird=4, seed=42, assets=None, obstacles=None):
+def generate_scenario(n_drone=3, n_balloon=3, n_bird=4, seed=42, assets=None, obstacles=None, illum=1.0):
     """랜덤 다중 침투 시나리오 생성.
 
     obstacles: 건물 등 실제 지도 장애물 폴리곤 리스트 (드론 경로탐색에 사용, pathfinding.plan_path 참조).
     다른 프로젝트의 지도/건물 데이터 병합 후 이 인자로 주입하면 드론이 건물을 피해 비행한다.
+    illum: 조도 계수 0(야간)~1(주간) — EO 카메라 관측 모델에 전달(eo_model.py 참조).
     """
     from .engine import ASSETS
     assets = assets or ASSETS
     rng = np.random.default_rng(seed)
     mix = ["drone"] * n_drone + ["balloon"] * n_balloon + ["bird"] * n_bird
     rng.shuffle(mix)
-    return [spawn(k, f"T{i:02d}", rng, assets, obstacles=obstacles) for i, k in enumerate(mix)]
+    return [spawn(k, f"T{i:02d}", rng, assets, obstacles=obstacles, illum=illum) for i, k in enumerate(mix)]
