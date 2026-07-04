@@ -1,0 +1,41 @@
+[
+ {
+  "track_id": "RDR-001",
+  "n_plots": 20,
+  "rcs_dbsm_med": -17.8,
+  "alt_m_med": 110.2,
+  "radial_velocity_med": 26.69,
+  "micro_doppler": true,
+  "snr_db_med": 13.8,
+  "rf_class": "custom/encrypted",
+  "rf_freq_ghz": 3.32,
+  "rf_cep_m": 420,
+  "rf_present": true
+ },
+ {
+  "track_id": "RDR-002",
+  "n_plots": 20,
+  "rcs_dbsm_med": -7.2,
+  "alt_m_med": 559.8,
+  "radial_velocity_med": 2.49,
+  "micro_doppler": false,
+  "snr_db_med": 15.6,
+  "rf_class": "none",
+  "rf_freq_ghz": null,
+  "rf_cep_m": null,
+  "rf_present": false
+ },
+ {
+  "track_id": "RDR-003",
+  "n_plots": 20,
+  "rcs_dbsm_med": -21.8,
+  "alt_m_med": 65.2,
+  "radial_velocity_med": 19.96,
+  "micro_doppler": false,
+  "snr_db_med": 13.6,
+  "rf_class": "none",
+  "rf_freq_ghz": null,
+  "rf_cep_m": null,
+  "rf_present": false
+ }
+]
