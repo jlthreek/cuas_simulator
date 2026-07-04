@@ -1,16 +1,38 @@
 """
 장애물(건물 등) 회피 경로탐색 — 그리드 A*.
-좌표계: km, 원점=중심자산 (engine.ASSETS와 동일).
+좌표계: km, 원점=중심자산 (engine.ASSETS와 동일). 높이/고도 단위는 m.
 
-obstacles: 건물 등 장애물 폴리곤 리스트. 각 폴리곤은 [(x1,y1),(x2,y2),...] (km).
-실제 지도(건물 폴리곤) 데이터는 별도 프로젝트 병합 후 주입될 예정 — 그 전까지는
+obstacles: 건물 등 장애물 리스트. 각 원소는 둘 중 하나:
+  - 폴리곤 [(x1,y1),(x2,y2),...] (km) — 높이 정보 없음(고도 무관하게 항상 회피, 보수적 기본값)
+  - {"polygon": [(x,y),...], "height": h_m} — 건물 높이(m)가 있으면 고도 기반 회피에 사용
+실제 지도(건물 폴리곤/높이) 데이터는 별도 프로젝트 병합 후 주입될 예정 — 그 전까지는
 obstacles=None/[] 이면 자동으로 직선 경로(목표점 직행)로 폴백하므로 기존 동작과 동일하다.
 """
 import heapq
 import numpy as np
 
 DEFAULT_RESOLUTION = 0.05   # km/cell (50m)
+DEFAULT_CLEARANCE_M = 15.0  # 건물 높이 대비 안전 여유고도(m) — 이보다 높이 날면 그 건물은 회피 대상 제외
 _NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
+
+def _polygon_of(obs):
+    return obs["polygon"] if isinstance(obs, dict) else obs
+
+
+def _height_of(obs):
+    """건물 높이(m). 높이 정보가 없으면 None(=미상, 항상 회피 대상으로 취급)"""
+    return obs.get("height") if isinstance(obs, dict) else None
+
+
+def _filter_by_altitude(obstacles, altitude_m, clearance_m):
+    """드론 고도가 건물 높이+여유고도보다 높으면 그 건물은 상공 통과 가능 → 회피 대상에서 제외.
+    altitude_m=None(고도 미상) 또는 건물 높이 미상이면 안전하게 항상 회피 대상으로 남긴다.
+    """
+    if altitude_m is None:
+        return obstacles
+    return [obs for obs in obstacles
+            if (h := _height_of(obs)) is None or altitude_m <= h + clearance_m]
 
 
 def _point_in_polygon(x, y, poly):
@@ -30,7 +52,7 @@ def _point_in_polygon(x, y, poly):
 
 
 def _point_in_any_polygon(x, y, obstacles):
-    return any(_point_in_polygon(x, y, poly) for poly in obstacles)
+    return any(_point_in_polygon(x, y, _polygon_of(obs)) for obs in obstacles)
 
 
 def build_occupancy_grid(obstacles, bounds, resolution=DEFAULT_RESOLUTION):
@@ -123,15 +145,21 @@ def _smooth(grid, path):
     return smoothed
 
 
-def plan_path(start_xy, goal_xy, obstacles=None, bounds=None, resolution=DEFAULT_RESOLUTION):
+def plan_path(start_xy, goal_xy, obstacles=None, altitude=None, clearance=DEFAULT_CLEARANCE_M,
+              bounds=None, resolution=DEFAULT_RESOLUTION):
     """start_xy/goal_xy: (x,y) km. obstacles 없으면 직선 폴백.
+    altitude: 드론 순항고도(m). 주어지면 이보다 낮은(+clearance) 건물은 상공 통과로 간주해
+    회피 대상에서 제외한다(고도 기반 회피). None이면 모든 건물을 고도 무관하게 회피(기존 동작).
     반환: [(x,y), ...] 웨이포인트 리스트 (시작점 미포함, 목표점 포함, 최소 1개).
     """
     if not obstacles:
         return [tuple(goal_xy)]
+    obstacles = _filter_by_altitude(obstacles, altitude, clearance)
+    if not obstacles:
+        return [tuple(goal_xy)]   # 모든 건물보다 고도가 높음 → 직선으로 상공 통과
     if bounds is None:
-        xs = [start_xy[0], goal_xy[0]] + [p[0] for poly in obstacles for p in poly]
-        ys = [start_xy[1], goal_xy[1]] + [p[1] for poly in obstacles for p in poly]
+        xs = [start_xy[0], goal_xy[0]] + [p[0] for obs in obstacles for p in _polygon_of(obs)]
+        ys = [start_xy[1], goal_xy[1]] + [p[1] for obs in obstacles for p in _polygon_of(obs)]
         pad = 0.3
         bounds = (min(xs) - pad, max(xs) + pad, min(ys) - pad, max(ys) + pad)
     grid = build_occupancy_grid(obstacles, bounds, resolution)

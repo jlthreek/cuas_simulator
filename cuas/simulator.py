@@ -52,7 +52,7 @@ def spawn(kind, tid, rng, assets, obstacles=None):
             rcs = float(np.clip(rng.normal(-6.0, 1.2), -10, -3))     # 대형 동체+로터(쿼드콥터보다 RCS 큼)
         mdop = True
         rf_class = "custom/encrypted" if rng.random() < 0.6 else "commercial"; rf_p = True
-        waypoints = pathfinding.plan_path(tuple(start), tuple(target), obstacles=obstacles)
+        waypoints = pathfinding.plan_path(tuple(start), tuple(target), obstacles=obstacles, altitude=alt)
         v = v_dir * speed   # wind_dir(초기 헤딩) 산출용 — 실제 이동은 웨이포인트 추적으로 수행
     elif kind == "balloon":
         subtype = str(rng.choice(["오물풍선", "고고도 미사일 풍선"]))

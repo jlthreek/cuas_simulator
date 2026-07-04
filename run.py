@@ -19,9 +19,9 @@ from cuas import simulator, pipeline, dashboard
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--drones", type=int, default=3)
-    ap.add_argument("--balloons", type=int, default=3)
-    ap.add_argument("--birds", type=int, default=4)
+    ap.add_argument("--drones", type=int, default=5)
+    ap.add_argument("--balloons", type=int, default=5)
+    ap.add_argument("--birds", type=int, default=10)
     ap.add_argument("--mobile", action="store_true", help="이동형(자기운동 보정)")
     ap.add_argument("--platform-speed", type=float, default=8.0)
     ap.add_argument("--pop-density", type=float, default=0.5, help="인구밀도 0~1 (부수피해)")
