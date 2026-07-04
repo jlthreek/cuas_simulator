@@ -7,7 +7,10 @@ from . import engine
 
 _TCOL = {"drone": "#c0392b", "balloon": "#2980b9", "bird": "#27ae60"}
 _TNAME = {"drone": "드론", "balloon": "풍선", "bird": "조류"}
-_SUBTYPE_ABBR = {"쿼드콥터": "쿼드", "고정익": "고정익", "소형풍선": "소형", "대형/오물풍선": "대형"}
+_SUBTYPE_ABBR = {
+    "쿼드콥터": "쿼드", "고정익": "고정익", "자폭형(FPV)": "자폭", "회전익(헬기형)": "회전익",
+    "오물풍선": "오물", "고고도 미사일 풍선": "고고도",
+}
 
 
 def _set_korean_font():

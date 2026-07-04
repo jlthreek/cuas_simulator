@@ -23,7 +23,7 @@ def spawn(kind, tid, rng, assets):
     start = np.array([r0 * np.cos(ang), r0 * np.sin(ang)])
 
     if kind == "drone":
-        subtype = str(rng.choice(["쿼드콥터", "고정익"]))
+        subtype = str(rng.choice(["쿼드콥터", "고정익", "자폭형(FPV)", "회전익(헬기형)"]))
         target = np.array(list(assets.values())[rng.integers(0, len(assets))][:2])
         v_dir = target - start
         v_dir = v_dir / (np.linalg.norm(v_dir) + 1e-9)
@@ -31,24 +31,32 @@ def spawn(kind, tid, rng, assets):
             v = v_dir * rng.uniform(10, 18)                          # 로터형: 저속 정밀기동
             alt = rng.uniform(60, 150)
             rcs = float(np.clip(rng.normal(-9.75, 1.2), -13, -6))    # DJI Inspire1 실측(Drones2023)
-        else:  # 고정익
+        elif subtype == "고정익":
             v = v_dir * rng.uniform(16, 26)                          # 고정익: 고속 장거리
             alt = rng.uniform(120, 300)
             rcs = float(np.clip(rng.normal(-17.62, 1.2), -21, -14))  # 소형 고정익 실측(Drones2023)
+        elif subtype == "자폭형(FPV)":
+            v = v_dir * rng.uniform(25, 45)                          # FPV/로이터링 뮤니션: 저고도 고속 강하공격
+            alt = rng.uniform(30, 100)
+            rcs = float(np.clip(rng.normal(-14.0, 1.2), -18, -10))   # 소형 5인치급 기체(쿼드콥터보다 작음)
+        else:  # 회전익(헬기형)
+            v = v_dir * rng.uniform(5, 15)                           # 단일/동축로터: 저속 정밀체공(ISR)
+            alt = rng.uniform(80, 250)
+            rcs = float(np.clip(rng.normal(-6.0, 1.2), -10, -3))     # 대형 동체+로터(쿼드콥터보다 RCS 큼)
         mdop = True
         rf_class = "custom/encrypted" if rng.random() < 0.6 else "commercial"; rf_p = True
     elif kind == "balloon":
-        subtype = str(rng.choice(["소형풍선", "대형/오물풍선"]))
+        subtype = str(rng.choice(["오물풍선", "고고도 미사일 풍선"]))
         w = np.array([rng.uniform(-1, 1), rng.uniform(-1, 1)])
         w = w / (np.linalg.norm(w) + 1e-9)
-        if subtype == "소형풍선":
-            v = w * rng.uniform(3, 7)                                # 바람종속 느림
-            alt = rng.uniform(420, 900)
-            rcs = rng.uniform(-11, -8)                               # engine.BALLOON_RCS(-12) 상회 유지
-        else:  # 대형/오물풍선 (제원 3~5km 고고도)
+        if subtype == "오물풍선":                                    # 제원 3~5km 저고도 (README 근거)
             v = w * rng.uniform(4, 9)
             alt = rng.uniform(3000, 5000)
             rcs = rng.uniform(-8, -3)
+        else:  # 고고도 미사일 풍선: 성층권 정찰/디코이용 (2023 정찰풍선 사례 ~18~20km 참고)
+            v = w * rng.uniform(8, 20)                               # 성층권 강풍 반영, 저고도풍선보다 고속
+            alt = rng.uniform(18000, 20000)
+            rcs = rng.uniform(-11, -6)                               # 디코이 RCS저감 반영, engine.BALLOON_RCS(-12) 상회 유지
         mdop = False
         rf_class = "none"; rf_p = False
     else:  # bird
