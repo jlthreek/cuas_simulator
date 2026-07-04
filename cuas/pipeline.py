@@ -55,9 +55,11 @@ def run(scenario, mobile=False, platform_speed=0.0, pop_density=0.5):
             T, d = engine.assess_threat(pos[0], pos[1], ttype, p_uav, prev, engine_dt_min := (2.0 / 60))
             resp = engine.recommend(T, ttype, pop_density)
             rows.append(dict(step=step, t=obs["t"], tid=tgt["tid"], truth=tgt["truth"],
+                             subtype=tgt.get("subtype", ""),
                              x=pos[0], y=pos[1], pred=ttype, p_uav=p_uav,
                              threat=T, d_asset=d, reco=resp["label"], kill=resp["kill"]))
-            final[tgt["tid"]] = dict(truth=tgt["truth"], pred=ttype, threat=T,
+            final[tgt["tid"]] = dict(truth=tgt["truth"], subtype=tgt.get("subtype", ""),
+                                     pred=ttype, threat=T,
                                      reco=resp["label"], kill=resp["kill"])
     return rows, final
 

@@ -7,13 +7,16 @@ from . import engine
 
 _TCOL = {"drone": "#c0392b", "balloon": "#2980b9", "bird": "#27ae60"}
 _TNAME = {"drone": "드론", "balloon": "풍선", "bird": "조류"}
+_SUBTYPE_ABBR = {"쿼드콥터": "쿼드", "고정익": "고정익", "소형풍선": "소형", "대형/오물풍선": "대형"}
 
 
 def _set_korean_font():
     import matplotlib.font_manager as fm, os
     for p in ["/System/Library/Fonts/AppleSDGothicNeo.ttc",
-              "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"]:
+              "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+              "C:/Windows/Fonts/malgun.ttf"]:
         if os.path.exists(p):
+            fm.fontManager.addfont(p)
             mpl.rcParams["font.family"] = fm.FontProperties(fname=p).get_name()
             break
     mpl.rcParams["axes.unicode_minus"] = False
@@ -55,10 +58,12 @@ def render(scenario, rows, final, out_path="dashboard.png"):
     # (C) 경보판
     ax = fig.add_subplot(gs[2]); ax.axis("off"); ax.set_title("③ 대응 결심 경보판", fontsize=10, loc="left")
     fin = pd.DataFrame(final).T.sort_values("threat", ascending=False); y = 0.95
-    ax.text(0.02, y, "트랙   유형    위협   대응", fontsize=8.5, fontweight="bold"); y -= 0.09
+    ax.text(0.02, y, "트랙   유형(세부)   위협   대응", fontsize=8.5, fontweight="bold"); y -= 0.09
     for tid, r in fin.iterrows():
         col = "#c0392b" if r.kill == "hard" else ("#e67e22" if r.threat >= 45 else "#27ae60")
-        ax.text(0.02, y, f"{tid}   {r.pred:5}  {float(r.threat):5.0f}   {r.reco[:13]}", fontsize=8, color=col)
+        sub = _SUBTYPE_ABBR.get(r.get("subtype", ""), "")
+        label = f"{r.pred}({sub})" if sub else r.pred
+        ax.text(0.02, y, f"{tid}   {label:9}  {float(r.threat):5.0f}   {r.reco[:11]}", fontsize=8, color=col)
         y -= 0.083
     corr = sum(1 for v in final.values() if v["pred"] == kr.get(v["truth"], "")) / len(final)
     ax.text(0.02, 0.03, f"분류정확도 {corr*100:.0f}% · soft-kill 우선", fontsize=8, style="italic", color="#555")

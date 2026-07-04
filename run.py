@@ -42,7 +42,7 @@ def main():
 
     print(f"침투체 {len(scen)}개 | 모드: {'이동형' if args.mobile else '고정형'} | 분류정확도 {acc*100:.0f}%")
     fin = pd.DataFrame(final).T.sort_values("threat", ascending=False)
-    print(fin[["truth", "pred", "threat", "reco", "kill"]].to_string())
+    print(fin[["truth", "subtype", "pred", "threat", "reco", "kill"]].to_string())
 
     pd.DataFrame(rows).to_csv("simulation_timeline.csv", index=False)
     dashboard.render(scen, rows, final, args.out)
